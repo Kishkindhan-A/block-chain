@@ -1,0 +1,23 @@
+{
+  "name": "enargy-backend",
+  "version": "1.0.0",
+  "description": "Blockchain-Based Smart Energy Meter – Node.js Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "axios": "^1.19.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.14.0",
+    "express": "^4.18.2",
+    "pg": "^8.11.3",
+    "razorpay": "^2.9.2",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

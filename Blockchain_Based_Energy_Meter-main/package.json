@@ -1,0 +1,9 @@
+{
+  "name": "enargy-root",
+  "version": "1.0.0",
+  "description": "Blockchain-Powered Smart Energy Meter - Ecosystem Root Launcher",
+  "main": "start_all.js",
+  "scripts": {
+    "start": "node start_all.js"
+  }
+}
