@@ -15,6 +15,7 @@ const cors    = require('cors');
 const energyRoutes  = require('./routes/energy');
 const paymentRoutes = require('./routes/payment');
 const billingRoutes = require('./routes/billing');
+const registerRoutes = require('./routes/register');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -62,6 +63,7 @@ app.get('/', (req, res) => {
 app.use('/api', energyRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', billingRoutes);
+app.use('/api', registerRoutes);
 
 // ============================================================
 // 404 Handler

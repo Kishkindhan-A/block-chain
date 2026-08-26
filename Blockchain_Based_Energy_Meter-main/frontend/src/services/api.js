@@ -1,8 +1,10 @@
 import axios from 'axios';
 
+// Create an Axios instance for API calls.
+// The frontend can use the VITE_API_URL environment variable (in .env) for custom URLs.
+// If not provided, fall back to the backend port defined in .env (3001).
 const api = axios.create({
-  // Fallback to local Express backend running on port 3000
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
   headers: {
     'Content-Type': 'application/json'
   }

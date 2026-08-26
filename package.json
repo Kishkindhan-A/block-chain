@@ -1,0 +1,10 @@
+{
+  "name": "enargy-root-launcher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper package to launch the Enargy ecosystem from the repository root.",
+  "scripts": {
+    "start": "cd Blockchain_Based_Energy_Meter-main && npm start",
+    "dev": "cd Blockchain_Based_Energy_Meter-main && npm run dev"
+  }
+}

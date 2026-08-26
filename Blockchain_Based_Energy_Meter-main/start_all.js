@@ -29,9 +29,10 @@ function log(prefix, data, colorCode = '36') {
   });
 }
 
-// 1. Start Hardhat Node
-console.log('1️⃣ Launching Local Blockchain Node (Port 8545)...');
-const nodeProc = spawn('npx', ['hardhat', 'node'], { cwd: blockchainDir, shell: true });
+// 1. Start Hardhat Node (use alternative port 8547 to avoid conflicts)
+console.log('1️⃣ Launching Local Blockchain Node (Port 8547)...');
+// Hardhat supports passing the port via the --port flag
+const nodeProc = spawn('npx', ['hardhat', 'node', '--port', '8547'], { cwd: blockchainDir, shell: true });
 
 nodeProc.stdout.on('data', (d) => log('BLOCKCHAIN', d, '35'));
 nodeProc.stderr.on('data', (d) => log('BLOCKCHAIN-ERR', d, '31'));
@@ -54,9 +55,12 @@ setTimeout(() => {
       const envPath = path.join(backendDir, '.env');
       if (fs.existsSync(envPath)) {
         let envContent = fs.readFileSync(envPath, 'utf8');
+        // Update contract address
         envContent = envContent.replace(/CONTRACT_ADDRESS=0x[a-fA-F0-9]{40}|CONTRACT_ADDRESS=0xYourDeployedContractAddress/g, `CONTRACT_ADDRESS=${contractAddress}`);
+        // Update RPC URL to match the new port (8547)
+        envContent = envContent.replace(/BLOCKCHAIN_RPC_URL=.*/g, 'BLOCKCHAIN_RPC_URL=http://127.0.0.1:8547');
         fs.writeFileSync(envPath, envContent, 'utf8');
-        console.log('✅ Updated backend/.env with contract address.\n');
+        console.log('✅ Updated backend/.env with contract address and RPC URL.\n');
       }
     }
   } catch (err) {
@@ -64,7 +68,8 @@ setTimeout(() => {
   }
 
   // 3. Start Backend Express API
-  console.log('3️⃣ Launching Backend Express Server (Port 3000)...');
+  // Backend reads its listening port from .env (PORT). We log the value after the server starts.
+  console.log('3️⃣ Launching Backend Express Server (port from .env)...');
   const backendProc = spawn('node', ['server.js'], { cwd: backendDir, shell: true });
   backendProc.stdout.on('data', (d) => log('BACKEND', d, '32'));
   backendProc.stderr.on('data', (d) => log('BACKEND-ERR', d, '31'));
@@ -77,8 +82,9 @@ setTimeout(() => {
 
   // 5. Start IoT Smart Meter Simulator
   setTimeout(() => {
-    console.log('5️⃣ Launching IoT Smart Meter Simulator...');
-    const simProc = spawn('node', ['scripts/test_esp32.js'], { cwd: backendDir, shell: true });
+    console.log('5️⃣ Launching IoT Smart Meter Signed Simulator...');
+    // Use the signed‑payload simulator which includes signature, sequence and hash.
+    const simProc = spawn('node', ['scripts/test_signed.js'], { cwd: backendDir, shell: true });
     simProc.stdout.on('data', (d) => log('SIMULATOR', d, '33'));
     simProc.stderr.on('data', (d) => log('SIMULATOR-ERR', d, '31'));
   }, 3000);

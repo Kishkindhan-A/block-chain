@@ -29,36 +29,64 @@ function initSqlite() {
     } else {
       console.log('✅ SQLite database active at:', dbPath);
       // Auto-create tables if PostgreSQL is not available
-      sqliteDb.serialize(() => {
-        sqliteDb.run(`
-          CREATE TABLE IF NOT EXISTS energy_readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            meter_id TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            voltage REAL,
-            current REAL,
-            power REAL,
-            power_factor REAL,
-            energy_kwh REAL,
-            hash TEXT,
-            blockchain_tx_hash TEXT
-          );
-        `);
-        sqliteDb.run(`
-          CREATE TABLE IF NOT EXISTS payments (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            meter_id TEXT NOT NULL,
-            bill_month TEXT NOT NULL,
-            amount REAL NOT NULL,
-            razorpay_order_id TEXT,
-            razorpay_payment_id TEXT,
-            status TEXT DEFAULT 'pending',
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-        sqliteDb.run(`CREATE INDEX IF NOT EXISTS idx_meter_id ON energy_readings(meter_id);`);
-        sqliteDb.run(`CREATE INDEX IF NOT EXISTS idx_payment_meter ON payments(meter_id);`);
-      });
+        sqliteDb.serialize(() => {
+          // Core readings table (includes new security columns)
+          sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS energy_readings (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              meter_id TEXT NOT NULL,
+              timestamp TEXT NOT NULL,
+              voltage REAL,
+              current REAL,
+              power REAL,
+              power_factor REAL,
+              energy_kwh REAL,
+              hash TEXT,
+              signature TEXT,
+              sequence INTEGER,
+              verification_status TEXT DEFAULT 'PENDING',
+              blockchain_tx_hash TEXT
+            );
+          `);
+          // Ensure any older DB gets the new columns – make ALTER statements idempotent
+          function safeAlter(sql) {
+            sqliteDb.run(sql, err => {
+              if (err && !err.message.includes('duplicate column')) {
+                console.error('⚠️ SQLite ALTER error:', err.message);
+              }
+            });
+          }
+          safeAlter(`ALTER TABLE energy_readings ADD COLUMN signature TEXT;`);
+          safeAlter(`ALTER TABLE energy_readings ADD COLUMN sequence INTEGER;`);
+          safeAlter(`ALTER TABLE energy_readings ADD COLUMN verification_status TEXT DEFAULT 'PENDING';`);
+
+          // Meter registry for public keys and replay protection
+          sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS meter_registry (
+              meter_id TEXT PRIMARY KEY,
+              public_key TEXT NOT NULL,
+              algorithm TEXT NOT NULL,
+              status TEXT DEFAULT 'ACTIVE',
+              registered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              last_sequence INTEGER DEFAULT 0,
+              last_seen TEXT
+            );
+          `);
+          sqliteDb.run(`
+            CREATE TABLE IF NOT EXISTS payments (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              meter_id TEXT NOT NULL,
+              bill_month TEXT NOT NULL,
+              amount REAL NOT NULL,
+              razorpay_order_id TEXT,
+              razorpay_payment_id TEXT,
+              status TEXT DEFAULT 'pending',
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+          `);
+          sqliteDb.run(`CREATE INDEX IF NOT EXISTS idx_meter_id ON energy_readings(meter_id);`);
+          sqliteDb.run(`CREATE INDEX IF NOT EXISTS idx_payment_meter ON payments(meter_id);`);
+        });
     }
   });
 }

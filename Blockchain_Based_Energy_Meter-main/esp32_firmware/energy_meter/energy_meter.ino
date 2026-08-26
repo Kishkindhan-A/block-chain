@@ -1,10 +1,18 @@
 #include "mbedtls/sha256.h"
+#include "mbedtls/pk.h"
+#include "mbedtls/ecdsa.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/base64.h"
 #include <ArduinoJson.h>
 #include <HTTPClient.h>
 #include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <time.h>
+#include <FS.h>
+#include <SPIFFS.h>
+#include <Preferences.h>
 
 
 // ---------------- WIFI ----------------
@@ -32,6 +40,14 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 // ---------------- SETTINGS ----------------
 String meterID = "MTR001";
 bool testMode = false;
+// Sequence number for replay protection (stored in NVS)
+Preferences preferences;
+unsigned long sequenceNumber = 0;
+
+// mbedTLS contexts for key handling
+mbedtls_pk_context pk;
+mbedtls_entropy_context entropy;
+mbedtls_ctr_drbg_context ctr_drbg;
 
 // ---------------- ENERGY ----------------
 float totalEnergy = 0;
@@ -178,7 +194,31 @@ void setup() {
   lcd.init();
   lcd.backlight();
 
+  // Initialize storage for keys and sequence
+  if (!SPIFFS.begin(true)) {
+    Serial.println("Failed to mount SPIFFS");
+  }
+  preferences.begin("meter", false);
+  sequenceNumber = preferences.getULong("seq", 0);
+
+  generateOrLoadKeyPair();
+  // Initialize cryptographic contexts
+  mbedtls_pk_init(&pk);
+  mbedtls_entropy_init(&entropy);
+  mbedtls_ctr_drbg_init(&ctr_drbg);
+
+  // Seed the RNG
+  const char *pers = "esp32_rng";
+  int ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                                   (const unsigned char *)pers, strlen(pers));
+  if (ret != 0) {
+    Serial.printf("❌ RNG seed failed: -0x%04x\n", -ret);
+  }
+
+  generateOrLoadKeyPair();
   connectWiFi();
+  // After WiFi is up, register the device public key with backend (once per boot)
+  registerMeter();
 }
 
 // ---------------- LOOP ----------------
@@ -228,6 +268,12 @@ void loop() {
   String raw = meterID + timestamp + String(voltage) + String(current) + String(powerW) + String(powerFactor);
   String hash = generateHash(raw);
 
+  // ---- SIGNATURE ----
+  sequenceNumber++;
+  preferences.putULong("seq", sequenceNumber);
+  String messageToSign = raw + String(sequenceNumber);
+  String signature = signMessage(messageToSign);
+
   // ---- JSON ----
   StaticJsonDocument<512> doc;
   doc["meter_id"] = meterID;
@@ -238,6 +284,8 @@ void loop() {
   doc["power_factor"] = powerFactor;
   doc["energy_kwh"] = totalEnergy;
   doc["hash"] = hash;
+  doc["signature"] = signature;
+  doc["sequence"] = sequenceNumber;
 
   String jsonString;
   serializeJson(doc, jsonString);
@@ -252,4 +300,145 @@ void loop() {
   Serial.println("------------------------");
 
   delay(10000); // 10 seconds between readings
+}
+
+
+/**
+ * Register the meter's public key with the backend.
+ * Sends a POST to /api/registerMeter with JSON payload.
+ */
+void registerMeter() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ WiFi not connected – cannot register meter.");
+    return;
+  }
+
+  // Load public key PEM from SPIFFS
+  if (!SPIFFS.exists("/public_key.pem")) {
+    Serial.println("⚠️ Public key file missing – cannot register.");
+    return;
+  }
+  File pubFile = SPIFFS.open("/public_key.pem", FILE_READ);
+  String pubKey = pubFile.readString();
+  pubFile.close();
+
+  // Build registration payload
+  StaticJsonDocument<512> regDoc;
+  regDoc["meter_id"] = meterID;
+  regDoc["public_key"] = pubKey;
+  regDoc["algorithm"] = "secp256r1";
+  String regPayload;
+  serializeJson(regDoc, regPayload);
+
+  HTTPClient http;
+  http.begin(String(serverName).replace("/api/energy", "/api/registerMeter")); // same host
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("x-api-key", apiKey);
+  int httpCode = http.POST(regPayload);
+  Serial.print("📡 Register meter HTTP: ");
+  Serial.println(httpCode);
+  if (httpCode > 0) {
+    String resp = http.getString();
+    Serial.println(resp);
+  }
+  http.end();
+}
+// ============================================================
+// Key Management Helpers
+// ============================================================
+
+/**
+ * Load existing key pair from SPIFFS or generate a new one.
+ * The private key stays on the device and is never transmitted.
+ * The public key is stored in PEM format for later registration.
+ */
+void generateOrLoadKeyPair() {
+  // Ensure SPIFFS is mounted (already done in setup)
+  if (!SPIFFS.exists("/private_key.pem") || !SPIFFS.exists("/public_key.pem")) {
+    Serial.println("🔑 Generating new EC key pair...");
+    // Initialize PK context for EC key
+    int ret = mbedtls_pk_setup(&pk, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+    if (ret != 0) {
+      Serial.printf("❌ PK setup failed: -0x%04x\n", -ret);
+      return;
+    }
+
+    // Generate key (using secp256r1 curve – widely supported)
+    ret = mbedtls_ecp_gen_key(MBEDTLS_ECP_DP_SECP256R1, mbedtls_pk_ec(pk), mbedtls_ctr_drbg_random, &ctr_drbg);
+    if (ret != 0) {
+      Serial.printf("❌ EC key generation failed: -0x%04x\n", -ret);
+      return;
+    }
+
+    // Write private key PEM
+    unsigned char privPem[1600];
+    size_t privLen = 0;
+    ret = mbedtls_pk_write_key_pem(&pk, privPem, sizeof(privPem));
+    if (ret != 0) {
+      Serial.printf("❌ Write private PEM failed: -0x%04x\n", -ret);
+      return;
+    }
+    File privFile = SPIFFS.open("/private_key.pem", FILE_WRITE);
+    privFile.write(privPem, strlen((char *)privPem));
+    privFile.close();
+
+    // Write public key PEM
+    unsigned char pubPem[1600];
+    size_t pubLen = 0;
+    ret = mbedtls_pk_write_pubkey_pem(&pk, pubPem, sizeof(pubPem));
+    if (ret != 0) {
+      Serial.printf("❌ Write public PEM failed: -0x%04x\n", -ret);
+      return;
+    }
+    File pubFile = SPIFFS.open("/public_key.pem", FILE_WRITE);
+    pubFile.write(pubPem, strlen((char *)pubPem));
+    pubFile.close();
+    Serial.println("✅ Key pair generated and stored.");
+  } else {
+    Serial.println("🔑 Loading existing EC key pair from SPIFFS...");
+    // Load private key PEM
+    File privFile = SPIFFS.open("/private_key.pem", FILE_READ);
+    size_t size = privFile.size();
+    unsigned char *privBuf = (unsigned char *)malloc(size + 1);
+    privFile.read(privBuf, size);
+    privBuf[size] = '\0';
+    privFile.close();
+    int ret = mbedtls_pk_parse_key(&pk, privBuf, size + 1, nullptr, 0);
+    free(privBuf);
+    if (ret != 0) {
+      Serial.printf("❌ Parse private key failed: -0x%04x\n", -ret);
+      return;
+    }
+    Serial.println("✅ Private key loaded.");
+  }
+}
+
+/**
+ * Sign a message using the device's private EC key.
+ * Returns a base64‑encoded signature string.
+ */
+String signMessage(const String &msg) {
+  // Hash the message first
+  unsigned char hash[32];
+  mbedtls_sha256((const unsigned char *)msg.c_str(), msg.length(), hash, 0);
+
+  // Sign the hash (ECDSA)
+  unsigned char sig[512];
+  size_t sigLen = 0;
+  int ret = mbedtls_pk_sign(&pk, MBEDTLS_MD_SHA256, hash, 0, sig, &sigLen,
+                             mbedtls_ctr_drbg_random, &ctr_drbg);
+  if (ret != 0) {
+    Serial.printf("❌ Signing failed: -0x%04x\n", -ret);
+    return String();
+  }
+
+  // Encode signature as base64 for transmission
+  size_t b64Len = 0;
+  unsigned char b64Buf[1024];
+  ret = mbedtls_base64_encode(b64Buf, sizeof(b64Buf), &b64Len, sig, sigLen);
+  if (ret != 0) {
+    Serial.printf("❌ Base64 encode failed: -0x%04x\n", -ret);
+    return String();
+  }
+  return String((char *)b64Buf);
 }
