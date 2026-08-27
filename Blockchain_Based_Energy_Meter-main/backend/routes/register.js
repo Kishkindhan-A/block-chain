@@ -31,7 +31,8 @@ router.post('/registerMeter', apiKeyAuth, async (req, res) => {
         algorithm = EXCLUDED.algorithm,
         status = 'ACTIVE',
         registered_at = CURRENT_TIMESTAMP,
-        last_sequence = 0,
+        last_sequence = CASE WHEN meter_registry.public_key = EXCLUDED.public_key
+                 THEN meter_registry.last_sequence ELSE 0 END,
         last_seen = CURRENT_TIMESTAMP`
     ;
     await pool.query(insertQuery, [meter_id, public_key, algorithm]);

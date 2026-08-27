@@ -25,8 +25,11 @@ const PORT = process.env.PORT || 3000;
 // ============================================================
 
 // Allow requests from the React dashboard (localhost:3000)
+// Allow CORS from any localhost origin (development) and any origin in production.
+// Using `origin: true` reflects the request's Origin header, which works for the
+// Vite dev server that may run on 5173, 5174, or any other port.
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  origin: true,
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'x-api-key'],
 }));

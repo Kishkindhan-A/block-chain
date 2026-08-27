@@ -10,15 +10,22 @@ require('dotenv').config();
 let isPgConnected = false;
 let sqliteDb = null;
 
-const pgPool = new Pool({
-  host:     process.env.DB_HOST     || 'localhost',
-  port:     parseInt(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME     || 'enargy',
-  user:     process.env.DB_USER     || 'postgres',
-  password: process.env.DB_PASSWORD || 'yourpassword',
-  connectionTimeoutMillis: 2000,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
+// Initialize PostgreSQL pool only if explicitly enabled via USE_POSTGRESQL env var.
+const usePostgres = process.env.USE_POSTGRESQL === 'true';
+let pgPool = null;
+if (usePostgres && process.env.DB_HOST && process.env.DB_HOST.trim() !== '') {
+  pgPool = new Pool({
+    host:     process.env.DB_HOST     || 'localhost',
+    port:     parseInt(process.env.DB_PORT) || 5432,
+    database: process.env.DB_NAME     || 'enargy',
+    user:     process.env.DB_USER     || 'postgres',
+    password: process.env.DB_PASSWORD || 'yourpassword',
+    connectionTimeoutMillis: 5000,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+  });
+} else {
+  console.info('ℹ️ PostgreSQL disabled or not configured. Using SQLite fallback.');
+}
 
 function initSqlite() {
   if (sqliteDb) return;
@@ -92,17 +99,22 @@ function initSqlite() {
 }
 
 // Test PostgreSQL connection
-pgPool.connect((err, client, release) => {
-  if (err) {
-    console.warn('⚠️ PostgreSQL unavailable (' + err.message + '). Using SQLite fallback database.');
-    isPgConnected = false;
-    initSqlite();
-  } else {
-    console.log('✅ PostgreSQL connected successfully');
-    isPgConnected = true;
-    release();
-  }
-});
+if (pgPool) {
+  pgPool.connect((err, client, release) => {
+    if (err) {
+      console.warn('⚠️ PostgreSQL connection failed (' + err.message + '). Falling back to SQLite.');
+      isPgConnected = false;
+      initSqlite();
+    } else {
+      console.log('✅ PostgreSQL connected successfully');
+      isPgConnected = true;
+      release();
+    }
+  });
+} else {
+  // Directly initialize SQLite when PostgreSQL is disabled or not configured.
+  initSqlite();
+}
 
 async function query(text, params = []) {
   if (isPgConnected) {

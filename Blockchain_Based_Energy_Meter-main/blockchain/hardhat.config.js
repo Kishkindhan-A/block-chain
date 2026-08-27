@@ -7,8 +7,8 @@ module.exports = {
   networks: {
     // Local Hardhat development node (default)
     localhost: {
-      // Updated to match the custom port used by start_all.js to avoid conflicts
-      url: "http://127.0.0.1:8547",
+      // Updated to a non‑conflicting port (8548) used by start_all.js
+      url: "http://127.0.0.1:8548",
     },
     // Sepolia testnet
     sepolia: {

@@ -28,7 +28,8 @@ const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', {
 const publicPem = publicKey.export({ type: 'spki', format: 'pem' });
 const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' });
 
-const METER_ID = 'MTR_TEST_01';
+// Keep the simulator meter aligned with the consumer demo login.
+const METER_ID = process.env.METER_ID || 'MTR001';
 
 // ---------------------------------------------------------------
 // 2️⃣ Register the meter public key with the backend
@@ -101,17 +102,19 @@ async function sendReading(payload) {
 }
 
 // ---------------------------------------------------------------
-// Main flow
+// Main flow – continuous simulation until the process is stopped
 // ---------------------------------------------------------------
 (async () => {
   await registerMeter();
-  // Send a series of readings with incrementing sequence numbers to avoid replay errors.
-  const totalReadings = 5;
-  for (let seq = 1; seq <= totalReadings; seq++) {
+  console.log('🔁 Starting continuous reading simulation (press Ctrl+C to stop)…');
+  let seq = 1;
+  // Run indefinitely; each iteration sends a signed reading and waits briefly.
+  while (true) {
     const payload = buildSignedReading(seq);
     console.log(`📤 Sending reading #${seq}`);
     await sendReading(payload);
-    // Small delay between readings to simulate real-time intervals
+    // Small delay between readings to simulate real‑time intervals (500 ms)
     await new Promise(res => setTimeout(res, 500));
+    seq++;
   }
 })();

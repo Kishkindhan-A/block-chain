@@ -65,10 +65,15 @@ export default function ConsumerDashboard({ user }) {
   }, [user.meterId]);
 
   const chartData = {
-    labels: data.history.map(h => new Date(h.timestamp).toLocaleTimeString()),
+    labels: data.history.map(h => {
+      const readingDate = new Date(h.timestamp);
+      return Number.isNaN(readingDate.getTime())
+        ? 'Unknown time'
+        : readingDate.toLocaleTimeString();
+    }),
     datasets: [{
       label: 'Live Power Consumption (W)',
-      data: data.history.map(h => h.power),
+      data: data.history.map(h => h.power || 0),
       borderColor: '#F79F1F',
       backgroundColor: 'rgba(247, 159, 31, 0.1)',
       tension: 0.4,
