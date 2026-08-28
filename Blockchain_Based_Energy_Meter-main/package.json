@@ -4,6 +4,9 @@
   "description": "Blockchain-Powered Smart Energy Meter - Ecosystem Root Launcher",
   "main": "start_all.js",
   "scripts": {
-    "start": "node start_all.js"
+    "start": "node start_all.js",
+    "install:all": "npm install --prefix backend && npm install --prefix blockchain && npm install --prefix frontend",
+    "audit": "npm audit --prefix backend && npm audit --prefix blockchain && npm audit --prefix frontend",
+    "audit:json": "npm audit --prefix backend --json > backend/npm-audit.json; npm audit --prefix blockchain --json > blockchain/npm-audit.json; npm audit --prefix frontend --json > frontend/npm-audit.json"
   }
 }

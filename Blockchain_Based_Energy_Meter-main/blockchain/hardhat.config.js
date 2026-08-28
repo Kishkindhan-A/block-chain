@@ -7,13 +7,12 @@ module.exports = {
   networks: {
     // Local Hardhat development node (default)
     localhost: {
-      // Updated to a non‑conflicting port (8548) used by start_all.js
-      url: "http://127.0.0.1:8548",
+      url: "http://127.0.0.1:8547",
     },
     // Sepolia testnet
     sepolia: {
-      url: "https://eth-sepolia.g.alchemy.com/v2/12YLHOQTngcYaYvZ_pp3r",
-      accounts: ["0xf3544773d54ae06396ce379803e15f025a5fdcca56807d5b780614b177e5ab62"],
+      url: process.env.SEPOLIA_RPC_URL || "",
+      accounts: process.env.SEPOLIA_PRIVATE_KEY ? [process.env.SEPOLIA_PRIVATE_KEY] : [],
     },
   },
 };
