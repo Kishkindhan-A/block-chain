@@ -10,6 +10,7 @@
 require('dotenv').config(); // Load .env variables first
 const express = require('express');
 const cors    = require('cors');
+const helmet  = require('helmet');
 
 // ── Route Modules ──────────────────────────────────────────
 const energyRoutes  = require('./routes/energy');
@@ -24,6 +25,10 @@ const PORT = process.env.PORT || 3000;
 // Global Middleware
 // ============================================================
 
+// Add standard security headers and cap request size to reduce HTTP DoS risk.
+app.use(helmet());
+app.use(express.json({ limit: '32kb' }));
+
 // Allow requests from the React dashboard (localhost:3000)
 // Allow CORS from any localhost origin (development) and any origin in production.
 // Using `origin: true` reflects the request's Origin header, which works for the
@@ -33,9 +38,6 @@ app.use(cors({
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'x-api-key'],
 }));
-
-// Parse JSON bodies (required for ESP32 POST data)
-app.use(express.json());
 
 // ============================================================
 // Health Check

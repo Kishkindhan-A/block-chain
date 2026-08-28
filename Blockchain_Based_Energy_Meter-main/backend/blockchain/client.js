@@ -6,6 +6,14 @@
 const { ethers } = require('ethers');
 require('dotenv').config();
 
+if (!process.env.PRIVATE_KEY) {
+  throw new Error('PRIVATE_KEY is required. Configure it in backend/.env; never use a source-code fallback.');
+}
+
+if (!process.env.CONTRACT_ADDRESS || !/^0x[a-fA-F0-9]{40}$/.test(process.env.CONTRACT_ADDRESS)) {
+  throw new Error('A valid CONTRACT_ADDRESS is required in backend/.env.');
+}
+
 // ABI (Application Binary Interface) defines how to interact with the contract.
 // Only include the functions we actually call from Node.js.
 const CONTRACT_ABI = [
@@ -19,19 +27,15 @@ const CONTRACT_ABI = [
 
 // Create a provider (connection to the Ethereum node / Hardhat local)
 const provider = new ethers.JsonRpcProvider(
-  process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8545'
+  process.env.BLOCKCHAIN_RPC_URL || 'http://127.0.0.1:8547'
 );
 
 // Create a wallet (signer) from private key – this pays gas fees
-const wallet = new ethers.Wallet(
-  process.env.PRIVATE_KEY ||
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // Hardhat account #0
-  provider
-);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
 
 // Instantiate the contract via address + ABI + signer
 const contract = new ethers.Contract(
-  process.env.CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000',
+  process.env.CONTRACT_ADDRESS,
   CONTRACT_ABI,
   wallet
 );

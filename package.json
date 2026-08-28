@@ -6,5 +6,8 @@
   "scripts": {
     "start": "cd Blockchain_Based_Energy_Meter-main && npm start",
     "dev": "cd Blockchain_Based_Energy_Meter-main && npm run dev"
+  },
+  "dependencies": {
+    "helmet": "^8.3.0"
   }
 }

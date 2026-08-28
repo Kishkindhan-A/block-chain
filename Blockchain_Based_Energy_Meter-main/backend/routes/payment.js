@@ -15,8 +15,8 @@ require('dotenv').config();
 
 // Initialise Razorpay with test credentials from .env
 const razorpay = new Razorpay({
-  key_id:     process.env.RAZORPAY_KEY_ID     || 'rzp_test_XXXXXXXXXXXXXXXX',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'your_secret',
+  key_id:     process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
 // ============================================================
@@ -75,7 +75,7 @@ router.post('/payment/verify', async (req, res) => {
   // Generate expected HMAC-SHA256 signature
   const body      = `${razorpay_order_id}|${razorpay_payment_id}`;
   const expected  = crypto
-    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || 'your_secret')
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
     .update(body)
     .digest('hex');
 

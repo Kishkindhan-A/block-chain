@@ -6,7 +6,7 @@ async function createDatabase() {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT) || 5432,
     user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'yourpassword',
+    password: process.env.DB_PASSWORD,
     database: 'postgres', // Connect to default postgres db to create the new one
   });
 
