@@ -588,6 +588,27 @@ tr:hover {
   letter-spacing: 0.02em;
 }
 
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.status-pill.success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+.status-pill.error {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
 .badge-success { background: rgba(16, 185, 129, 0.12); color: #047857; }
 .badge-pending { background: rgba(245, 158, 11, 0.12); color: #b45309; }
 

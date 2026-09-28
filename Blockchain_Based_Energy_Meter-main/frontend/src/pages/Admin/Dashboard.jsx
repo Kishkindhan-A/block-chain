@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Activity, Wallet, MessageSquare, Search, RefreshCw, Smartphone, Shield } from 'lucide-react';
-import { getLatestReadings } from '../../services/api';
+import { Users, Activity, Wallet, MessageSquare, Search, RefreshCw, Smartphone, Shield, CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
+import { getLatestReadings, registerRfidCard, getRfidCards, authorizeRfidTap } from '../../services/api';
 
 const AdminKPICard = ({ title, value, icon, variant = 'primary' }) => (
   <div className={`card kpi-card kpi-${variant} animate-up`}>
@@ -15,13 +15,29 @@ const AdminKPICard = ({ title, value, icon, variant = 'primary' }) => (
 
 export default function AdminDashboard() {
   const [readings, setReadings] = useState([]);
+  const [rfidCards, setRfidCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [rfidForm, setRfidForm] = useState({
+    card_uid: '',
+    meter_id: 'MTR001',
+    owner_name: 'Customer A'
+  });
+  const [rfidTap, setRfidTap] = useState({
+    card_uid: 'AA11BB22',
+    meter_id: 'MTR001'
+  });
+  const [rfidStatus, setRfidStatus] = useState({ type: '', message: '' });
+  const [tapStatus, setTapStatus] = useState({ type: '', message: '', authorized: false, transfer_allowed: false });
 
   const fetchData = async () => {
     try {
-      const res = await getLatestReadings();
-      setReadings(res.data.readings || []);
+      const [readingsRes, rfidRes] = await Promise.all([
+        getLatestReadings(),
+        getRfidCards()
+      ]);
+      setReadings(readingsRes.data.readings || []);
+      setRfidCards(rfidRes.data.cards || []);
       setLoading(false);
     } catch (err) {
       console.error('Admin fetch error:', err.message);
@@ -30,13 +46,53 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 1000); // 1s live refresh
+    const interval = setInterval(fetchData, 2000);
     return () => clearInterval(interval);
   }, []);
 
   const filteredReadings = readings.filter(r => 
     r.meter_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleRfidSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await registerRfidCard(rfidForm);
+      setRfidStatus({
+        type: 'success',
+        message: response.data.message || 'RFID card registered successfully.'
+      });
+      setRfidForm({ ...rfidForm, card_uid: '' });
+      setRfidTap({ card_uid: rfidForm.card_uid || 'AA11BB22', meter_id: rfidForm.meter_id || 'MTR001' });
+      await fetchData();
+    } catch (err) {
+      setRfidStatus({
+        type: 'error',
+        message: err.response?.data?.message || err.response?.data?.error || 'Unable to register RFID card.'
+      });
+    }
+  };
+
+  const handleRfidTap = async () => {
+    try {
+      const response = await authorizeRfidTap(rfidTap);
+      const result = response.data;
+      setTapStatus({
+        type: result.authorized ? 'success' : 'error',
+        message: result.message || 'Tap evaluation complete.',
+        authorized: !!result.authorized,
+        transfer_allowed: !!result.transfer_allowed
+      });
+    } catch (err) {
+      const detail = err.response?.data;
+      setTapStatus({
+        type: 'error',
+        message: detail?.message || detail?.error || 'Tap rejected by the meter security layer.',
+        authorized: false,
+        transfer_allowed: false
+      });
+    }
+  };
 
   return (
     <div className="animate-up executive-dashboard">
@@ -97,11 +153,123 @@ export default function AdminDashboard() {
           variant="success"
         />
         <AdminKPICard 
-          title="Active Complaints" 
-          value="12" 
-          icon={<MessageSquare size={24} />} 
+          title="RFID Access" 
+          value={rfidCards.length > 0 ? `${rfidCards.length} cards` : '0 cards'} 
+          icon={<CreditCard size={24} />} 
           variant="warning"
         />
+      </div>
+
+      <div className="card" style={{ marginBottom: '30px', padding: '24px' }}>
+        <div className="panel-header monitoring-header">
+          <div>
+            <p className="eyebrow">Security</p>
+            <h3>RFID Meter Access</h3>
+          </div>
+          <span className="status-line dark"><span className="pulse-dot" /> Tap authorization enabled</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '24px', marginTop: '18px' }}>
+          <form onSubmit={handleRfidSubmit} style={{ display: 'grid', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Card UID</label>
+              <input
+                type="text"
+                value={rfidForm.card_uid}
+                onChange={(e) => setRfidForm({ ...rfidForm, card_uid: e.target.value })}
+                placeholder="AA11BB22"
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Meter ID</label>
+              <input
+                type="text"
+                value={rfidForm.meter_id}
+                onChange={(e) => setRfidForm({ ...rfidForm, meter_id: e.target.value })}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Owner Name</label>
+              <input
+                type="text"
+                value={rfidForm.owner_name}
+                onChange={(e) => setRfidForm({ ...rfidForm, owner_name: e.target.value })}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary">Register RFID Card</button>
+            {rfidStatus.message && (
+              <div className={`status-pill ${rfidStatus.type === 'success' ? 'success' : 'error'}`}>
+                {rfidStatus.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                {rfidStatus.message}
+              </div>
+            )}
+          </form>
+
+          <div style={{ display: 'grid', gap: '14px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)' }}>Tap Test</label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <input
+                  type="text"
+                  value={rfidTap.card_uid}
+                  onChange={(e) => setRfidTap({ ...rfidTap, card_uid: e.target.value })}
+                  placeholder="AA11BB22"
+                />
+                <input
+                  type="text"
+                  value={rfidTap.meter_id}
+                  onChange={(e) => setRfidTap({ ...rfidTap, meter_id: e.target.value })}
+                  placeholder="MTR001"
+                />
+              </div>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={handleRfidTap}>Tap Card to Authorize Meter</button>
+            {tapStatus.message && (
+              <div className={`status-pill ${tapStatus.type === 'success' ? 'success' : 'error'}`}>
+                {tapStatus.type === 'success' ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
+                {tapStatus.message}
+              </div>
+            )}
+            {tapStatus.message && (
+              <div className="status-line dark" style={{ width: 'fit-content' }}>
+                <span className="pulse-dot" />
+                Transfer Allowed: {tapStatus.transfer_allowed ? 'Yes' : 'No'}
+              </div>
+            )}
+          </div>
+
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Card UID</th>
+                  <th>Meter</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rfidCards.length > 0 ? rfidCards.map((card, idx) => (
+                  <tr key={idx}>
+                    <td>{card.card_uid}</td>
+                    <td>{card.meter_id}</td>
+                    <td>
+                      <span className="badge badge-success">{card.status || 'ACTIVE'}</span>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
+                      No RFID cards registered yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div className="card monitoring-panel" style={{ marginBottom: '30px' }}>

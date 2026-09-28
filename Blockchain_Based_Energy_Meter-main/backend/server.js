@@ -17,6 +17,7 @@ const energyRoutes  = require('./routes/energy');
 const paymentRoutes = require('./routes/payment');
 const billingRoutes = require('./routes/billing');
 const registerRoutes = require('./routes/register');
+const rfidRoutes = require('./routes/rfid');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -69,6 +70,7 @@ app.use('/api', energyRoutes);
 app.use('/api', paymentRoutes);
 app.use('/api', billingRoutes);
 app.use('/api', registerRoutes);
+app.use('/api', rfidRoutes);
 
 // ============================================================
 // 404 Handler

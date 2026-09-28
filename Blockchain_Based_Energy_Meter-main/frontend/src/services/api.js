@@ -26,6 +26,17 @@ export const getBilling = (meterId) => api.get(`/bill/${meterId}`);
 export const getBlockchainData = () => api.get('/blockchain');
 export const getAllReadings = () => api.get('/readings?limit=100');
 
+// RFID access control
+export const registerRfidCard = (data) => api.post('/rfid/register', data, {
+  headers: { 'x-api-key': import.meta.env.VITE_API_KEY || 'EB_SECURE_KEY_123' }
+});
+export const authorizeRfidTap = (data) => api.post('/rfid/authorize', data, {
+  headers: { 'x-api-key': import.meta.env.VITE_API_KEY || 'EB_SECURE_KEY_123' }
+});
+export const getRfidCards = () => api.get('/rfid/cards', {
+  headers: { 'x-api-key': import.meta.env.VITE_API_KEY || 'EB_SECURE_KEY_123' }
+});
+
 // Payments
 export const createOrder = (data) => api.post('/payment/order', data);
 export const verifyPayment = (data) => api.post('/payment/verify', data);

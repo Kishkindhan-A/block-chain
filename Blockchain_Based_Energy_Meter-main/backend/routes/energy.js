@@ -16,6 +16,7 @@ const validateReading = require('../middleware/validateReading');
 const verifySignature = require('../middleware/verifySignature');
 const { storeReadingOnChain, getAllReadingsFromChain } = require('../blockchain/client');
 const { calculateBill } = require('../utils/tariff');
+const { validateMeterTapAccess } = require('../utils/rfid');
 
 // ============================================================
 // POST /api/energy
@@ -23,9 +24,25 @@ const { calculateBill } = require('../utils/tariff');
 // Headers required: x-api-key
 // ============================================================
 router.post('/energy', apiKeyAuth, validateReading, verifySignature, async (req, res) => {
-  const { meter_id, timestamp, voltage, current, power, power_factor, energy_kwh, hash, signature, sequence, verification_status } = req.body;
+  const { meter_id, timestamp, voltage, current, power, power_factor, energy_kwh, hash, signature, sequence, verification_status, card_uid } = req.body;
 
   try {
+    const tapAccess = validateMeterTapAccess({
+      meter_id,
+      card_uid,
+      registered_meter_id: meter_id,
+      status: 'ACTIVE'
+    });
+
+    if (!tapAccess.authorized) {
+      return res.status(403).json({
+        success: false,
+        authorized: false,
+        transfer_allowed: false,
+        message: tapAccess.message || 'RFID tap validation failed. Transfer blocked.'
+      });
+    }
+
     // If ESP32 fails to grab time, it sends 'N/A', which breaks PostgreSQL's timestamp type
     const validTimestamp = timestamp === 'N/A' ? new Date().toISOString() : timestamp;
     req.body.timestamp = validTimestamp; // update body for blockchain

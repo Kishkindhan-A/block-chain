@@ -78,8 +78,20 @@ function initSqlite() {
     );
   `);
 
+  sqliteDb.exec(`
+    CREATE TABLE IF NOT EXISTS rfid_cards (
+      card_uid TEXT PRIMARY KEY,
+      meter_id TEXT NOT NULL,
+      owner_name TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      last_seen TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_meter_id ON energy_readings(meter_id);`);
   sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_payment_meter ON payments(meter_id);`);
+  sqliteDb.exec(`CREATE INDEX IF NOT EXISTS idx_rfid_meter ON rfid_cards(meter_id);`);
 
   try {
     sqliteDb.exec(`ALTER TABLE energy_readings ADD COLUMN signature TEXT;`);
