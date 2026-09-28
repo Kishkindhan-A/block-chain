@@ -116,14 +116,34 @@ graph TD
 
 ## 🛠️ Technology Stack
 
+### Purpose
+This blockchain-powered energy metering platform is designed to provide tamper-proof, transparent, and automated energy tracking, billing, and grid monitoring for both utilities and consumers.
+
+### Technology
+- **Frontend:** React + Vite
+- **Styling:** Tailwind CSS
+- **UI components:** shadcn/ui
+- **Icons:** Lucide React
+- **Charts:** Recharts
+- **Animations:** Framer Motion
+- **3D / visual effects:** Three.js / React Three Fiber
+- **Maps / network visualization:** React Flow
+- **Blockchain visualization:** React Flow + custom nodes
+- **Backend:** Node.js + Express
+- **Database:** PostgreSQL
+- **Blockchain:** Ethereum-compatible private blockchain
+- **Smart contracts:** Solidity
+- **Blockchain interaction:** ethers.js
+- **Wallet / Web3:** MetaMask / WalletConnect
+
 | Domain | Technologies |
 |:---|:---|
-| **Frontend Web App** | React 18, Vite, Tailwind CSS, Lucide Icons, Chart.js, Axios |
-| **Backend & Microservices** | Node.js, Express.js, Helmet, CORS, Ethers.js (v6), Razorpay SDK |
-| **Blockchain & Web3** | Solidity (^0.8.19), Hardhat, Ethereum Local Testnet, Sepolia compatibility |
-| **Databases & ORM** | PostgreSQL (`pg`), SQLite3 fallback, raw SQL migrations |
-| **Hardware & Firmware** | ESP32 DevKit V1, C++ (Arduino Framework), ACS712 (Current), ZMPT101B (Voltage), I2C 1602 LCD |
-| **Security & Auditing** | SHA-256 HMAC signing, Helmet HTTP header hardening, npm audit security benchmarks |
+| **Frontend Web App** | React + Vite, Tailwind CSS, shadcn/ui, Lucide React, Recharts, Framer Motion, Three.js / React Three Fiber, React Flow |
+| **Backend & API** | Node.js, Express.js, Helmet, CORS, Ethers.js, Razorpay SDK |
+| **Blockchain & Smart Contracts** | Ethereum-compatible private blockchain, Solidity, Hardhat, MetaMask / WalletConnect |
+| **Databases** | PostgreSQL, SQLite3 fallback for local setups |
+| **Hardware & Firmware** | ESP32 DevKit V1, C++ (Arduino Framework), ACS712, ZMPT101B, I2C LCD |
+| **Security & Auditing** | SHA-256 HMAC signing, Helmet hardening, validation middleware, npm audit checks |
 
 ---
 

@@ -7,7 +7,7 @@ module.exports = {
   networks: {
     // Local Hardhat development node (default)
     localhost: {
-      url: "http://127.0.0.1:8547",
+      url: "http://127.0.0.1:8548",
     },
     // Sepolia testnet
     sepolia: {

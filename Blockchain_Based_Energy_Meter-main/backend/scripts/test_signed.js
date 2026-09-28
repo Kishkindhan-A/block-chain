@@ -12,6 +12,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 const axios = require('axios');
 const crypto = require('crypto');
+const { buildCanonicalMessage } = require('../middleware/verifySignature');
 
 // Backend port is read from the .env file (default 3000). Use the same value here.
 const API_URL = process.env.PORT ? `http://localhost:${process.env.PORT}/api` : 'http://localhost:3000/api';
@@ -60,20 +61,9 @@ function buildSignedReading(seq) {
   const power = voltage * current * 0.98; // using a fixed PF for demo
   const power_factor = 0.98;
   const energy_kwh = 123.4567;
+  const signature_version = 1;
 
-  // Canonical message (without sequence) – must match ESP32 logic
-  const raw = `${METER_ID}${timestamp}${voltage}${current}${power}${power_factor}`;
-  const hash = crypto.createHash('sha256').update(raw).digest('hex');
-
-  // Message to sign = hash + sequence (as string)
-  const messageToSign = raw + seq.toString();
-  const sign = crypto.createSign('SHA256');
-  sign.update(messageToSign);
-  sign.end();
-  const signatureDer = sign.sign(privatePem);
-  const signatureB64 = signatureDer.toString('base64');
-
-  return {
+  const payload = {
     meter_id: METER_ID,
     timestamp,
     voltage,
@@ -81,9 +71,23 @@ function buildSignedReading(seq) {
     power,
     power_factor,
     energy_kwh,
+    sequence: seq,
+    signature_version,
+  };
+
+  const canonical = buildCanonicalMessage(payload);
+  const hash = crypto.createHash('sha256').update(canonical).digest('hex');
+
+  const sign = crypto.createSign('SHA256');
+  sign.update(canonical);
+  sign.end();
+  const signatureDer = sign.sign(privatePem);
+  const signatureB64 = signatureDer.toString('base64');
+
+  return {
+    ...payload,
     hash,
     signature: signatureB64,
-    sequence: seq
   };
 }
 

@@ -20,7 +20,7 @@ const CONTRACT_ABI = [
   // Store a reading on-chain
   "function storeReading(string meterId, uint256 voltage, uint256 current, uint256 power, uint256 powerFactor, uint256 energy, string timestamp, string hash) external",
   // Retrieve all stored readings
-  "function getReadings() external view returns (tuple(string meterId, uint256 voltage, uint256 current, uint256 power, uint256 powerFactor, uint256 energy, string timestamp, string hash)[])",
+  "function getReadings() external view returns (tuple(string meterId, uint256 voltage, uint256 current, uint256 power, uint256 powerFactor, uint256 energy, string timestamp, string hash, address sender, uint256 blockTime)[])",
   // Get total number of readings stored
   "function getReadingCount() external view returns (uint256)"
 ];
@@ -102,6 +102,8 @@ async function getAllReadingsFromChain() {
     energy_kwh:   Number(r.energy)       / 1000,
     timestamp:    r.timestamp,
     hash:         r.hash,
+    sender:       r.sender,
+    blockTime:    Number(r.blockTime),
   }));
 }
 

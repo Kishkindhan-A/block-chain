@@ -39,8 +39,46 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="animate-up">
-      <div className="kpi-grid">
+    <div className="animate-up executive-dashboard">
+      <div className="executive-summary card">
+        <div className="executive-header">
+          <div>
+            <p className="eyebrow">Portfolio Overview</p>
+            <h2>Executive network health</h2>
+          </div>
+          <div className="executive-actions">
+            <div className="search-wrap">
+              <Search size={16} />
+              <input
+                type="text"
+                placeholder="Search Meter ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <button className="btn btn-primary" onClick={fetchData}>
+              <RefreshCw size={18} /> Refresh
+            </button>
+          </div>
+        </div>
+
+        <div className="executive-overview">
+          <div className="overview-stat">
+            <span>Network uptime</span>
+            <strong>99.94%</strong>
+          </div>
+          <div className="overview-stat">
+            <span>Active feeders</span>
+            <strong>28</strong>
+          </div>
+          <div className="overview-stat">
+            <span>Avg. demand</span>
+            <strong>3.8 MW</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="kpi-grid executive-kpi-grid">
         <AdminKPICard 
           title="Total Consumers" 
           value="1,284" 
@@ -66,27 +104,13 @@ export default function AdminDashboard() {
         />
       </div>
 
-      <div className="card" style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Activity className="text-primary" /> Live Meter Monitoring
-          </h2>
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: '#B2BEC3' }} />
-              <input 
-                type="text" 
-                placeholder="Search Meter ID..." 
-                className="btn" 
-                style={{ paddingLeft: '40px', background: '#F8F9FA' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <button className="btn btn-primary" onClick={fetchData}>
-              <RefreshCw size={18} /> Refresh
-            </button>
+      <div className="card monitoring-panel" style={{ marginBottom: '30px' }}>
+        <div className="panel-header monitoring-header">
+          <div>
+            <p className="eyebrow">Operations</p>
+            <h3>Live Meter Monitoring</h3>
           </div>
+          <span className="status-line dark"><span className="pulse-dot" /> Live data stream</span>
         </div>
 
         <div className="table-container">

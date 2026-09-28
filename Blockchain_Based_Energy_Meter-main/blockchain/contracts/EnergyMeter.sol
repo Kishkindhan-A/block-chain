@@ -48,8 +48,8 @@ contract EnergyMeter {
     }
 
     // ── Modifiers ────────────────────────────────────────────
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this.");
+    modifier onlyAuthorizedWriter() {
+        require(msg.sender == owner, "Only authorized writer can call this.");
         _;
     }
 
@@ -66,7 +66,7 @@ contract EnergyMeter {
         uint256 energy,
         string memory timestamp,
         string memory hash
-    ) external {
+    ) external onlyAuthorizedWriter {
         // Create a new Reading struct and push it to the array
         readings.push(Reading({
             meterId:     meterId,

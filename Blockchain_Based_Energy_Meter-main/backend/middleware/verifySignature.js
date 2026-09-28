@@ -20,61 +20,75 @@
 const crypto = require('crypto');
 const pool = require('../db/pool');
 
+function normalizeNumber(value) {
+  if (value === null || value === undefined) return '0';
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return String(value);
+  return numeric.toString();
+}
+
 /**
- * Re‑creates the exact message string that the ESP32 signs.
- * Must match the logic in the firmware (see energy_meter.ino).
+ * Canonical payload used by the ESP32 and backend for hash/signature verification.
+ * This must remain deterministic and free of undefined values.
  */
-function buildCanonicalMessage(body) {
-  const { meter_id, timestamp, voltage, current, power, power_factor, sequence } = body;
-  // ESP32 concatenates raw numeric values via String() without formatting.
-  return meter_id + timestamp + voltage.toString() + current.toString() + power.toString() + power_factor.toString() + sequence.toString();
+function buildCanonicalMessage(body = {}) {
+  const signatureVersion = body.signature_version ?? 1;
+  const meterId = String(body.meter_id ?? '');
+  const timestamp = String(body.timestamp ?? '');
+  const voltage = normalizeNumber(body.voltage);
+  const current = normalizeNumber(body.current);
+  const power = normalizeNumber(body.power);
+  const powerFactor = normalizeNumber(body.power_factor);
+  const energyKwh = normalizeNumber(body.energy_kwh);
+  const sequence = String(body.sequence ?? 0);
+
+  return [
+    `meter_id=${meterId}`,
+    `timestamp=${timestamp}`,
+    `voltage=${voltage}`,
+    `current=${current}`,
+    `power=${power}`,
+    `power_factor=${powerFactor}`,
+    `energy_kwh=${energyKwh}`,
+    `sequence=${sequence}`,
+    `signature_version=${signatureVersion}`,
+  ].join('|');
 }
 
 /**
  * Verify the request payload.
  */
 async function verifySignature(req, res, next) {
-  const { meter_id, timestamp, voltage, current, power, power_factor, energy_kwh, hash, signature, sequence } = req.body;
+  const { meter_id, hash, signature, sequence, signature_version } = req.body;
 
   try {
-    // 1️⃣ Fetch registered public key and last sequence
-    const { rows } = await pool.query('SELECT public_key, algorithm, last_sequence FROM meter_registry WHERE meter_id = $1', [meter_id]);
+    const { rows } = await pool.query('SELECT public_key, last_sequence FROM meter_registry WHERE meter_id = $1', [meter_id]);
     if (rows.length === 0) {
       return res.status(403).json({ error: 'Meter not registered.' });
     }
-    const { public_key, algorithm, last_sequence } = rows[0];
 
-    // 2️⃣ Replay protection – sequence must be greater than previous
-    // Log for debugging
-    console.log('🔍 Replay check – last_sequence:', last_sequence, 'incoming sequence:', sequence);
+    const { public_key, last_sequence } = rows[0];
     if (typeof last_sequence === 'number' && sequence <= last_sequence) {
-      console.warn('⚠️ Replay detected – rejecting payload');
       return res.status(409).json({ error: 'Replay detected: sequence number not increasing.' });
     }
 
-    // 3️⃣ Re‑compute hash of the canonical message (without sequence)
-    const rawMessage = meter_id + timestamp + voltage.toString() + current.toString() + power.toString() + power_factor.toString();
-    const recomputedHash = crypto.createHash('sha256').update(rawMessage).digest('hex');
+    const canonicalMessage = buildCanonicalMessage({ ...req.body, signature_version: signature_version ?? 1 });
+    const recomputedHash = crypto.createHash('sha256').update(canonicalMessage).digest('hex');
     if (recomputedHash !== hash) {
       return res.status(400).json({ error: 'Hash mismatch.' });
     }
 
-    // 4️⃣ Verify digital signature (ECDSA, base64 encoded)
-    const messageToVerify = rawMessage + sequence.toString();
     const verifier = crypto.createVerify('SHA256');
-    verifier.update(messageToVerify);
+    verifier.update(canonicalMessage);
     verifier.end();
 
-    const isValid = verifier.verify(public_key, Buffer.from(signature, 'base64'));
+    const signatureBuffer = Buffer.from(signature, 'base64');
+    const isValid = verifier.verify(public_key, signatureBuffer);
     if (!isValid) {
       return res.status(400).json({ error: 'Invalid digital signature.' });
     }
 
-    // 5️⃣ Update meter_registry with new sequence and last_seen timestamp
-    // Use CURRENT_TIMESTAMP which works for both PostgreSQL and SQLite fallback
     await pool.query('UPDATE meter_registry SET last_sequence = $1, last_seen = CURRENT_TIMESTAMP WHERE meter_id = $2', [sequence, meter_id]);
-
-    // Attach verification status for later DB insert
     req.body.verification_status = 'VALID';
     next();
   } catch (err) {
@@ -84,3 +98,4 @@ async function verifySignature(req, res, next) {
 }
 
 module.exports = verifySignature;
+module.exports.buildCanonicalMessage = buildCanonicalMessage;

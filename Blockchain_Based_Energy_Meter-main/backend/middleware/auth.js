@@ -11,7 +11,11 @@ require('dotenv').config();
  */
 function apiKeyAuth(req, res, next) {
   const receivedKey = req.headers['x-api-key'];
-  const validKey    = process.env.API_KEY || 'EB_SECURE_KEY_123';
+  const validKey = process.env.API_KEY && process.env.API_KEY.trim();
+
+  if (!validKey) {
+    return res.status(500).json({ error: 'Server misconfiguration: API_KEY is required in backend/.env.' });
+  }
 
   if (!receivedKey) {
     return res.status(401).json({ error: 'Missing API key. Add x-api-key header.' });

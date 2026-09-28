@@ -8,15 +8,19 @@
  * Rejects requests with missing or invalid fields.
  */
 function validateReading(req, res, next) {
-  const { meter_id, timestamp, voltage, current, power, power_factor, energy_kwh, hash, signature, sequence } = req.body;
+  const { meter_id, timestamp, voltage, current, power, power_factor, energy_kwh, hash, signature, sequence, signature_version } = req.body;
 
   // Check all required fields are present
   if (!meter_id || !timestamp || voltage == null || current == null ||
       power == null || power_factor == null || energy_kwh == null || !hash || !signature || sequence == null) {
     return res.status(400).json({
       error: 'Missing required fields.',
-      required: ['meter_id', 'timestamp', 'voltage', 'current', 'power', 'power_factor', 'energy_kwh', 'hash', 'signature', 'sequence']
+      required: ['meter_id', 'timestamp', 'voltage', 'current', 'power', 'power_factor', 'energy_kwh', 'hash', 'signature', 'sequence', 'signature_version']
     });
+  }
+
+  if (signature_version != null && typeof signature_version !== 'number') {
+    return res.status(400).json({ error: 'signature_version must be a number when provided.' });
   }
 
   // Basic type validation
@@ -25,6 +29,7 @@ function validateReading(req, res, next) {
     return res.status(400).json({ error: 'Invalid data types for numeric fields.' });
   }
 
+  req.body.signature_version = typeof signature_version === 'number' ? signature_version : 1;
   next(); // All good, proceed
 }
 
